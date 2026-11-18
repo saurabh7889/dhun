@@ -8373,7 +8373,17 @@
       var btnCancelGoogleConfig = $("#btnCancelGoogleConfig");
       var googleConfigMsg = $("#googleConfigMsg");
 
+      // =========================================================================
+      // PASTE YOUR GOOGLE CLIENT ID HERE:
+      // Put your Client ID between the quotes below so clicking "Continue with Google"
+      // will DIRECTLY open Google's sign-in screen without asking anyone!
+      // =========================================================================
+      var HARDCODED_GOOGLE_CLIENT_ID = ""; // <-- PASTE HERE (e.g. "123456789-abcdef.apps.googleusercontent.com")
+
       function getGoogleClientId() {
+        if (HARDCODED_GOOGLE_CLIENT_ID && HARDCODED_GOOGLE_CLIENT_ID.trim()) {
+          return HARDCODED_GOOGLE_CLIENT_ID.trim();
+        }
         var id = "";
         try { id = localStorage.getItem("dhun-google-client-id") || ""; } catch (e) {}
         return id.trim();
