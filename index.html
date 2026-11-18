@@ -1623,8 +1623,40 @@
 
     /* ---------- small screens ---------- */
     @media (max-width:860px) {
-      .l-nav .lnk {
+      .l-nav .lnk:not(#navAuthBtn) {
         display: none
+      }
+
+      .l-nav #navAuthBtn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 999px;
+        background: var(--tint);
+        border: 1px solid var(--line);
+        color: var(--ink);
+        cursor: pointer;
+        white-space: nowrap;
+        line-height: 1;
+        transition: all .15s ease;
+      }
+
+      .l-nav #navAuthBtn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .l-nav .right {
+        gap: 8px;
+      }
+
+      .l-nav a.btn {
+        padding: 7px 14px;
+        font-size: 13px;
+        white-space: nowrap;
       }
 
       .rec {
@@ -1821,7 +1853,7 @@
 
       .tabbar {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         position: fixed;
         left: 0;
         right: 0;
@@ -2020,6 +2052,31 @@
       background: #166534;
       color: #fff;
     }
+
+    @media (max-width: 480px) {
+      .modal-overlay {
+        padding: 12px;
+      }
+      .modal {
+        padding: 24px 18px;
+        max-height: 88vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 18px;
+      }
+      .modal-tabs {
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .auth-field input {
+        padding: 12px 14px;
+        font-size: 16px;
+      }
+      .modal .btn {
+        min-height: 44px;
+        font-size: 14px;
+      }
+    }
 </style>
 
   <div id="landing">
@@ -2176,6 +2233,10 @@
           stroke-linecap="round">
           <path d="M5 4v16M10 4v16M15.5 5.5l4 14" />
         </svg>Library</button>
+      <button id="tabbarAuthBtn" type="button" aria-label="Profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg><span id="tabbarAuthText">Profile</span></button>
     </nav>
 
     <div class="player" id="player">
@@ -2419,7 +2480,7 @@
     (function () {
       "use strict";
       var $ = function (s, r) { return (r || document).querySelector(s) }, $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)) };
-      var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)) };
+      var clamp = function (v, a, b) { if (typeof v !== "number" || isNaN(v)) return a; return Math.min(b, Math.max(a, v)) };
       var fmt = function (s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") };
       var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -7010,7 +7071,15 @@
 
       var cur = function () { return T[S.q[S.i]] || null };
       function setQueue(ids, start, ctx) { S.q = ids.slice(); S.i = start || 0; S.t = 0; S.play = true; S.ctx = ctx || ""; sync(true) }
-      function playTrack(id, list, ctx) { var l = list && list.indexOf(id) > -1 ? list : [id]; setQueue(l, l.indexOf(id), ctx) }
+      function playTrack(id, list, ctx) {
+        if (!currentUser) {
+          pendingRoute = "playing";
+          showAuthModal("login");
+          return;
+        }
+        var l = list && list.indexOf(id) > -1 ? list : [id];
+        setQueue(l, l.indexOf(id), ctx);
+      }
 
       function next(auto) {
         if (!S.q.length) return;
@@ -7060,12 +7129,18 @@
       /* ---------- landing ---------- */
       var landing = $("#landing"), stage = $("#stage"), lring = $("#lring"), lvin = $("#lvinyl"), clockEl = $("#clock b");
       function seg(p, a, b, c, d) { return p < b ? clamp((p - a) / (b - a), 0, 1) : (p <= c ? 1 : clamp(1 - (p - c) / (d - c), 0, 1)) }
-      function setPhase(el, o, dir) { el.style.opacity = o; el.style.transform = "translate3d(0," + ((1 - o) * dir * 26) + "px,0)"; el.style.visibility = o < .01 ? "hidden" : "visible"; el.style.pointerEvents = o > .6 ? "auto" : "none" }
+      function setPhase(el, o, dir) { if (!el) return; if (typeof o !== "number" || isNaN(o)) o = 0; el.style.opacity = o; el.style.transform = "translate3d(0," + ((1 - o) * dir * 26) + "px,0)"; el.style.visibility = o < .01 ? "hidden" : "visible"; el.style.pointerEvents = o > .6 ? "auto" : "none" }
       function onScroll() {
         if (!landing || landing.hidden) return;
-        var tot = stage.offsetHeight - innerHeight, p = clamp(-stage.getBoundingClientRect().top / tot, 0, 1);
+        var tot = stage ? (stage.offsetHeight - innerHeight) : 0;
+        var p = 0;
+        if (tot > 0 && stage) {
+          p = clamp(-stage.getBoundingClientRect().top / tot, 0, 1);
+        }
+        if (isNaN(p)) p = 0;
         setRing(lring, p);
-        var nr = stage.getBoundingClientRect(); $(".l-nav").classList.toggle("on-rec", innerWidth > 860 && nr.top <= 0 && nr.bottom > 60);
+        var nr = stage ? stage.getBoundingClientRect() : { top: 100, bottom: 100 };
+        $(".l-nav").classList.toggle("on-rec", innerWidth > 860 && nr.top <= 0 && nr.bottom > 60);
         lvin.style.transform = "rotate(" + (reduce ? 0 : p * 1080) + "deg)";
         clockEl.textContent = fmt(p * 222);
         setPhase($("#p1"), seg(p, -1, 0, .2, .29), -1);
@@ -7084,7 +7159,14 @@
         el.style.setProperty("--c", a.glow);
         var arName = AR[a.a] ? AR[a.a].name : (a.artistName || "Artist");
         el.setAttribute("aria-label", a.t + " by " + arName);
-        el.addEventListener("click", function () { go("album-" + a.id) });
+        el.addEventListener("click", function () {
+          if (!currentUser) {
+            pendingRoute = "album-" + a.id;
+            showAuthModal("login");
+            return;
+          }
+          go("album-" + a.id);
+        });
         track.appendChild(el);
         fcs.push(el);
       });
@@ -7187,8 +7269,14 @@
       var btnShowCreateFromAdd = $("#btnShowCreateFromAdd");
       var pendingTrackIdForPlaylist = null;
 
-      function createPlaylistFlow(optionalTrackId) { openCreatePlaylistModal(optionalTrackId) }
-      function addSongToPlaylistFlow(trackId) { openAddToPlaylistModal(trackId); }
+      function createPlaylistFlow(optionalTrackId) {
+        if (!currentUser) { showAuthModal("login"); return; }
+        openCreatePlaylistModal(optionalTrackId);
+      }
+      function addSongToPlaylistFlow(trackId) {
+        if (!currentUser) { showAuthModal("login"); return; }
+        openAddToPlaylistModal(trackId);
+      }
       function openCreatePlaylistModal(optionalTrackId) {
         pendingTrackIdForPlaylist = optionalTrackId || null;
         if (!playlistModal) return;
@@ -7433,9 +7521,9 @@
         return '<div class="search-big">' + I.search + '<input id="sq" type="search" placeholder="Search songs, artists, Indian & English hits..." value="' + searchQ.replace(/"/g, "&quot;") + '" autocomplete="off" aria-label="Search"></div><div class="chips">' + CHIPS.map(function (c) { return '<button class="chip' + (searchChip === c ? " on" : "") + '" data-chip="' + c + '">' + c + '</button>' }).join("") + '</div><div id="sres"></div>';
       }
 
-            function renderSearchResults(box, q, tr, ar, al, isLive, related) {
+                  function renderSearchResults(box, q, tr, ar, al, isLive, related) {
         if (!tr.length && !ar.length && !al.length && (!related || !related.length)) {
-          box.innerHTML = '<div class="empty"><b>Nothing found for "' + q.replace(/</g, "&lt;") + '"</b><div style="margin-top:10px;font-size:13px;color:var(--ink-2)">Searching online streaming libraries...</div></div>';
+          box.innerHTML = '<div class="empty"><b>Nothing found for "' + q.replace(/</g, "&lt;") + '"</b><div style="margin-top:10px;font-size:13px;color:var(--ink-2)">Searching across JioSaavn, iTunes & global streaming...</div></div>';
           return;
         }
         var ids = tr.map(function (t) { return t.id });
@@ -7450,7 +7538,7 @@
         }
 
         if (tr.length) {
-          html += '<section class="sec">' + secH("Songs" + (isLive ? " (Live Full Length)" : "")) + '<div class="list" id="sList">' + tr.slice(0, 30).map(function (t, i) { return rowHTML(t, i) }).join("") + '</div></section>';
+          html += '<section class="sec">' + secH("Songs" + (isLive ? " (Live Streaming)" : "")) + '<div class="list" id="sList">' + tr.slice(0, 35).map(function (t, i) { return rowHTML(t, i) }).join("") + '</div></section>';
         }
 
         if (al.length) {
@@ -7458,7 +7546,7 @@
         }
 
         if (related && related.length && tr.length < 5) {
-          html += '<section class="sec">' + secH("Suggested & Trending Hits") + '<div class="list" id="relList">' + related.map(function (t, i) { return rowHTML(t, i) }).join("") + '</div></section>';
+          html += '<section class="sec">' + secH("Suggested & Related Tracks") + '<div class="list" id="relList">' + related.map(function (t, i) { return rowHTML(t, i) }).join("") + '</div></section>';
           ids = ids.concat(related.map(function(t) { return t.id; }));
         }
 
@@ -7482,108 +7570,276 @@
         }
 
         var encoded = encodeURIComponent(queryTerm);
-        var path = "/api/saavn/api.php?__call=search.getResults&_format=json&_marker=0&cc=in&p=1&n=25&q=" + encoded;
-        var urls = [
-          path,
-          "http://localhost:3000" + path,
-          "http://127.0.0.1:3000" + path
-        ];
-        if (window.location.port === "3000") {
-          urls = [path];
-        }
 
-        function tryFetch(idx) {
-          if (idx >= urls.length) return Promise.reject(new Error("No search endpoint reachable"));
-          return fetch(urls[idx])
+        // API 1: JioSaavn Search (Full-Length Indian & Bollywood streams)
+        var saavnPath = "/api/saavn/api.php?__call=search.getResults&_format=json&_marker=0&cc=in&p=1&n=25&q=" + encoded;
+        var saavnUrls = [
+          saavnPath,
+          "http://localhost:3000" + saavnPath,
+          "http://127.0.0.1:3000" + saavnPath
+        ];
+        if (window.location.port === "3000") saavnUrls = [saavnPath];
+
+        function trySaavn(idx) {
+          if (idx >= saavnUrls.length) return Promise.resolve(null);
+          return fetch(saavnUrls[idx])
             .then(function(res) {
               if (!res.ok) throw new Error("HTTP " + res.status);
               return res.json();
             })
             .catch(function() {
-              return tryFetch(idx + 1);
+              return trySaavn(idx + 1);
             });
         }
 
-        tryFetch(0)
-          .then(function (data) {
-            if (!data || !data.results || !data.results.length) return;
-            var apiTracks = [];
+        var pSaavn = trySaavn(0);
+
+        // API 2: iTunes / Apple Music (Global English & Worldwide songs, fast & zero-CORS)
+        var pItunes = fetch("https://itunes.apple.com/search?term=" + encoded + "&media=music&entity=song&limit=25")
+          .then(function(res) { return res.ok ? res.json() : null })
+          .catch(function() { return null });
+
+        // API 3: Audius (Indie, Lo-fi, Electronic & Global)
+        var pAudius = fetch("https://discoveryprovider.audius.co/v1/tracks/search?query=" + encoded + "&app_name=DHUN")
+          .then(function(res) { return res.ok ? res.json() : null })
+          .catch(function() { return null });
+
+        Promise.allSettled([pSaavn, pItunes, pAudius])
+          .then(function (results) {
+            var rawSaavn = (results[0].status === "fulfilled" && results[0].value) ? results[0].value : null;
+            var rawItunes = (results[1].status === "fulfilled" && results[1].value) ? results[1].value : null;
+            var rawAudius = (results[2].status === "fulfilled" && results[2].value) ? results[2].value : null;
+
+            var liveTracks = [];
             var apiArtistsMap = {};
             var apiAlbumsMap = {};
 
-            data.results.forEach(function (s) {
-              if (!s.encrypted_media_url) return;
-              var streamUrl = decryptSaavnUrl(s.encrypted_media_url);
-              if (!streamUrl || !streamUrl.startsWith("http")) return;
+            // Parse JioSaavn
+            if (rawSaavn && rawSaavn.results && rawSaavn.results.length) {
+              rawSaavn.results.forEach(function (s) {
+                if (!s.encrypted_media_url) return;
+                var streamUrl = decryptSaavnUrl(s.encrypted_media_url);
+                if (!streamUrl || !streamUrl.startsWith("http")) return;
 
-              var cleanSong = (s.song || "").replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&');
-              var cleanSinger = (s.singers || s.primary_artists || "Artist").replace(/&amp;/g, '&');
-              var cleanAlbum = (s.album || s.song || "").replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&');
+                var cleanSong = (s.song || "").replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&');
+                var cleanSinger = (s.singers || s.primary_artists || "Artist").replace(/&amp;/g, '&');
+                var cleanAlbum = (s.album || s.song || "").replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&');
 
-              var tid = "saavn-" + (s.id || Math.random().toString(36).slice(2));
-              var alId = "al-" + (s.albumid || tid);
-              var arId = "ar-" + (s.primary_artists_id ? s.primary_artists_id.split(",")[0].trim() : tid);
+                var tid = "saavn-" + (s.id || Math.random().toString(36).slice(2));
+                var alId = "al-" + (s.albumid || tid);
+                var arId = "ar-" + (s.primary_artists_id ? s.primary_artists_id.split(",")[0].trim() : tid);
 
-              var artImg = s.image ? s.image.replace("150x150", "500x500") : "";
-              var dur = parseInt(s.duration, 10) || 180;
+                var artImg = s.image ? s.image.replace("150x150", "500x500") : "";
+                var dur = parseInt(s.duration, 10) || 180;
 
-              if (!AR[arId]) {
-                AR[arId] = {
-                  id: arId,
-                  name: cleanSinger,
-                  lis: "Popular Artist",
-                  genres: s.language ? (s.language.charAt(0).toUpperCase() + s.language.slice(1)) : "Music",
-                  bio: "Trending on DHUN streaming.",
-                  city: "India / Global",
-                  hero: "#E05A47"
-                };
-              }
-              apiArtistsMap[arId] = AR[arId];
+                if (!AR[arId]) {
+                  AR[arId] = {
+                    id: arId,
+                    name: cleanSinger,
+                    lis: "Popular Artist",
+                    genres: s.language ? (s.language.charAt(0).toUpperCase() + s.language.slice(1)) : "Music",
+                    bio: "Trending on DHUN streaming.",
+                    city: "India / Global",
+                    hero: "#E05A47"
+                  };
+                }
+                apiArtistsMap[arId] = AR[arId];
 
-              if (!AL[alId]) {
-                AL[alId] = {
-                  id: alId,
+                if (!AL[alId]) {
+                  AL[alId] = {
+                    id: alId,
+                    a: arId,
+                    t: cleanAlbum,
+                    artistName: cleanSinger,
+                    y: parseInt(s.year, 10) || 2024,
+                    img: "url('" + artImg + "')",
+                    glow: "#E05A47",
+                    c: ["#1A0C08", "#E05A47", "#F7B267"],
+                    ids: []
+                  };
+                }
+                apiAlbumsMap[alId] = AL[alId];
+
+                var trObj = {
+                  id: tid,
+                  t: cleanSong,
+                  d: dur,
+                  al: alId,
                   a: arId,
-                  t: cleanAlbum,
                   artistName: cleanSinger,
-                  y: parseInt(s.year, 10) || 2024,
-                  img: "url('" + artImg + "')",
-                  glow: "#E05A47",
-                  c: ["#1A0C08", "#E05A47", "#F7B267"],
-                  ids: []
+                  img: artImg,
+                  preview: streamUrl,
+                  language: s.language || "Hindi",
+                  source: "saavn",
+                  n: AL[alId].ids.length + 1
                 };
-              }
-              apiAlbumsMap[alId] = AL[alId];
 
-              var trObj = {
-                id: tid,
-                t: cleanSong,
-                d: dur,
-                al: alId,
-                a: arId,
-                artistName: cleanSinger,
-                img: artImg,
-                preview: streamUrl,
-                language: s.language || "Hindi",
-                n: AL[alId].ids.length + 1
-              };
+                T[tid] = trObj;
+                if (AL[alId].ids.indexOf(tid) === -1) AL[alId].ids.push(tid);
+                liveTracks.push(trObj);
+              });
+            }
 
-              T[tid] = trObj;
-              if (AL[alId].ids.indexOf(tid) === -1) {
-                AL[alId].ids.push(tid);
-              }
-              apiTracks.push(trObj);
+            // Parse iTunes
+            if (rawItunes && rawItunes.results && rawItunes.results.length) {
+              rawItunes.results.forEach(function (r) {
+                if (!r.previewUrl) return;
+                var tid = "itunes-" + r.trackId;
+                var cleanSong = r.trackName || "Song";
+                var cleanSinger = r.artistName || "Artist";
+                var cleanAlbum = r.collectionName || cleanSong;
+                var artImg = r.artworkUrl100 ? r.artworkUrl100.replace("100x100bb", "600x600bb") : "";
+                var dur = Math.round((r.trackTimeMillis || 180000) / 1000);
+                var arId = "ar-it-" + (r.artistId || tid);
+                var alId = "al-it-" + (r.collectionId || tid);
+
+                if (!AR[arId]) {
+                  AR[arId] = {
+                    id: arId,
+                    name: cleanSinger,
+                    lis: "Featured Artist",
+                    genres: r.primaryGenreName || "Pop",
+                    bio: "Global artist available on DHUN.",
+                    city: "Global",
+                    hero: "#3498DB"
+                  };
+                }
+                apiArtistsMap[arId] = AR[arId];
+
+                if (!AL[alId]) {
+                  AL[alId] = {
+                    id: alId,
+                    a: arId,
+                    t: cleanAlbum,
+                    artistName: cleanSinger,
+                    y: r.releaseDate ? parseInt(r.releaseDate.slice(0, 4), 10) : 2024,
+                    img: "url('" + artImg + "')",
+                    glow: "#3498DB",
+                    c: ["#111114", "#3498DB", "#2ECC71"],
+                    ids: []
+                  };
+                }
+                apiAlbumsMap[alId] = AL[alId];
+
+                var trObj = {
+                  id: tid,
+                  t: cleanSong,
+                  d: dur,
+                  al: alId,
+                  a: arId,
+                  artistName: cleanSinger,
+                  img: artImg,
+                  preview: r.previewUrl,
+                  language: "English",
+                  source: "itunes",
+                  n: AL[alId].ids.length + 1
+                };
+
+                T[tid] = trObj;
+                if (AL[alId].ids.indexOf(tid) === -1) AL[alId].ids.push(tid);
+                liveTracks.push(trObj);
+              });
+            }
+
+            // Parse Audius
+            if (rawAudius && rawAudius.data && rawAudius.data.length) {
+              rawAudius.data.slice(0, 8).forEach(function (a) {
+                var tid = "aud-" + a.id;
+                var cleanSong = a.title || "Track";
+                var cleanSinger = a.user ? a.user.name : "Indie Artist";
+                var cleanAlbum = cleanSong + " (Single)";
+                var artImg = a.artwork ? (a.artwork["480x480"] || a.artwork["150x150"] || "") : "";
+                var dur = a.duration || 180;
+                var arId = "ar-aud-" + (a.user ? a.user.id : tid);
+                var alId = "al-aud-" + tid;
+                var streamUrl = "https://discoveryprovider.audius.co/v1/tracks/" + a.id + "/stream?app_name=DHUN";
+
+                if (!AR[arId]) {
+                  AR[arId] = {
+                    id: arId,
+                    name: cleanSinger,
+                    lis: "Indie Artist",
+                    genres: a.genre || "Indie / Electronic",
+                    bio: "Independent music creator on Audius & DHUN.",
+                    city: "Decentralized",
+                    hero: "#9B59B6"
+                  };
+                }
+                apiArtistsMap[arId] = AR[arId];
+
+                if (!AL[alId]) {
+                  AL[alId] = {
+                    id: alId,
+                    a: arId,
+                    t: cleanAlbum,
+                    artistName: cleanSinger,
+                    y: 2024,
+                    img: "url('" + artImg + "')",
+                    glow: "#9B59B6",
+                    c: ["#111114", "#9B59B6", "#E74C3C"],
+                    ids: []
+                  };
+                }
+                apiAlbumsMap[alId] = AL[alId];
+
+                var trObj = {
+                  id: tid,
+                  t: cleanSong,
+                  d: dur,
+                  al: alId,
+                  a: arId,
+                  artistName: cleanSinger,
+                  img: artImg,
+                  preview: streamUrl,
+                  language: "Global",
+                  source: "audius",
+                  n: AL[alId].ids.length + 1
+                };
+
+                T[tid] = trObj;
+                if (AL[alId].ids.indexOf(tid) === -1) AL[alId].ids.push(tid);
+                liveTracks.push(trObj);
+              });
+            }
+
+            if (!liveTracks.length && (!existingTracks || !existingTracks.length)) {
+              renderSearchResults(box, q, [], Object.values(apiArtistsMap), Object.values(apiAlbumsMap), true);
+              return;
+            }
+
+            var combinedPool = (existingTracks || []).concat(liveTracks);
+            var deduplicated = [];
+            var seenKeys = new Set();
+            var qLower = q.toLowerCase().trim();
+
+            function getRelatableScore(t) {
+              var title = (t.t || "").toLowerCase();
+              var ar = ((AR[t.a] ? AR[t.a].name : "") + " " + (t.artistName || "")).toLowerCase();
+              var score = 0;
+              if (title === qLower) score += 1500;
+              else if (title.startsWith(qLower)) score += 1000;
+              else if (title.indexOf(qLower) > -1) score += 800;
+              if (ar.indexOf(qLower) > -1) score += 500;
+              if (t.source === "saavn") score += 60;
+              return score;
+            }
+
+            combinedPool.sort(function (a, b) {
+              return getRelatableScore(b) - getRelatableScore(a);
             });
 
-            if (apiTracks.length) {
-              var existingNames = new Set((existingTracks || []).map(function(x) { return x.t.toLowerCase().trim(); }));
-              var newLive = apiTracks.filter(function(x) { return !existingNames.has(x.t.toLowerCase().trim()); });
-              var combined = (existingTracks || []).concat(newLive);
-              renderSearchResults(box, q, combined, Object.values(apiArtistsMap), Object.values(apiAlbumsMap), true);
-            }
+            combinedPool.forEach(function (t) {
+              var key = (t.t || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16);
+              if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                deduplicated.push(t);
+              }
+            });
+
+            renderSearchResults(box, q, deduplicated, Object.values(apiArtistsMap), Object.values(apiAlbumsMap), true);
           })
           .catch(function (err) {
-            console.log("Live full song search status:", err.message);
+            console.warn("Federated music search notice:", err);
           });
       }
 
@@ -7609,19 +7865,19 @@
           var genres = (AR[t.a] ? AR[t.a].genres : "").toLowerCase();
           var full = title + " " + arName + " " + alTitle + " " + lang + " " + genres;
 
-          if (title === qLower) return 1000;
-          if (title.startsWith(qLower)) return 850;
-          if (title.includes(qLower)) return 700;
-          if (arName === qLower) return 600;
-          if (arName.includes(qLower)) return 500;
-          if (alTitle.includes(qLower)) return 400;
+          if (title === qLower) return 1200;
+          if (title.startsWith(qLower)) return 900;
+          if (title.indexOf(qLower) > -1) return 750;
+          if (arName === qLower) return 650;
+          if (arName.indexOf(qLower) > -1) return 500;
+          if (alTitle.indexOf(qLower) > -1) return 400;
 
           var matches = 0;
           for (var i = 0; i < tokens.length; i++) {
-            if (full.includes(tokens[i])) matches++;
+            if (full.indexOf(tokens[i]) > -1) matches++;
           }
-          if (matches === tokens.length) return 250 + matches * 20;
-          if (matches > 0) return matches * 30;
+          if (matches === tokens.length) return 300 + matches * 25;
+          if (matches > 0) return matches * 35;
           return 0;
         }
 
@@ -7636,23 +7892,34 @@
 
         var ar = ARTISTS.filter(function (a) {
           var aFull = (a.name + " " + a.genres + " " + a.city).toLowerCase();
-          return tokens.some(function (tok) { return aFull.includes(tok); });
+          return tokens.some(function (tok) { return aFull.indexOf(tok) > -1; });
         });
 
         var al = ALBUMS.filter(function (a) {
           var arName = AR[a.a] ? AR[a.a].name : (a.artistName || "");
           var alFull = (a.t + " " + arName).toLowerCase();
-          return tokens.some(function (tok) { return alFull.includes(tok); });
+          return tokens.some(function (tok) { return alFull.indexOf(tok) > -1; });
         });
 
-        // Recommended / Related fallback if few or no tracks
+        // Smart Relatable Fallback: pick matching genre / language if few exact matches
         var related = [];
         if (tr.length < 5) {
           var trIds = new Set(tr.map(function(x) { return x.id; }));
+          var matchedLanguage = "";
+          if (qLower.indexOf("punjabi") > -1) matchedLanguage = "punjabi";
+          else if (qLower.indexOf("hindi") > -1 || qLower.indexOf("bollywood") > -1) matchedLanguage = "hindi";
+          else if (qLower.indexOf("tamil") > -1) matchedLanguage = "tamil";
+          else if (qLower.indexOf("english") > -1 || qLower.indexOf("pop") > -1) matchedLanguage = "english";
+
           for (var k = 0; k < TRACKS.length && related.length < 8; k++) {
             var candidate = TRACKS[k];
             if (!trIds.has(candidate.id)) {
-              related.push(candidate);
+              if (matchedLanguage) {
+                var cLang = (candidate.language || "").toLowerCase();
+                if (cLang.indexOf(matchedLanguage) > -1) related.push(candidate);
+              } else {
+                related.push(candidate);
+              }
             }
           }
         }
@@ -7662,7 +7929,7 @@
         if (searchTimer) clearTimeout(searchTimer);
         searchTimer = setTimeout(function () {
           performLiveSearch(q, box, tr);
-        }, 200);
+        }, 150);
       }
 
       var libTab = "playlists";
@@ -7997,55 +8264,9 @@
       $$("[data-theme-toggle]").forEach(function (b) { b.addEventListener("click", themeToggle) });
       try { var st = localStorage.getItem("dhun-theme"); if (st) document.documentElement.setAttribute("data-theme", st) } catch (e) { }
 
-      /* ---------- routing ---------- */
-      function go(h) { if (location.hash.slice(1) === h) { onHash(); return } location.hash = h }
-      var appShown = false;
-      function onHash() {
-        var h = location.hash.slice(1);
-        if (h.startsWith("share=")) {
-          try {
-            var raw = decodeURIComponent(escape(atob(h.slice(6))));
-            var data = JSON.parse(raw);
-            sharedPlaylistTemp = {
-              id: "shared",
-              n: data.n || "Shared Playlist",
-              ids: data.ids || [],
-              isShared: true
-            };
-            if (!appShown) { landing.hidden = true; app.hidden = false; appShown = true; }
-            document.body.style.overflow = "hidden";
-            $("#np").hidden = true;
-            render("playlist-shared");
-            return;
-          } catch (err) {
-            console.warn("Shared playlist parse error:", err);
-          }
-        }
-        if (!h || h === "home") {
-          if (!h) { landing.hidden = false; app.hidden = true; $("#np").hidden = true; appShown = false; document.body.style.overflow = ""; onScroll(); return }
-          if (!appShown) { landing.hidden = true; app.hidden = false; appShown = true; }
-          document.body.style.overflow = "hidden";
-          $("#np").hidden = true; render("home"); return;
-        }
-        if (!appShown) { landing.hidden = true; app.hidden = false; appShown = true; }
-        document.body.style.overflow = "hidden";
-        if (h === "playing") { if (!cur()) { S.q = POP.slice(); S.i = 0; S.t = 0; S.ctx = "Popular on DHUN"; sync(true) } $("#np").hidden = false; setTimeout(updateTitleMarquee, 40); return }
-        $("#np").hidden = true; render(h);
-      }
-      window.addEventListener("hashchange", onHash);
-      $("#toLanding").addEventListener("click", function (e) { e.preventDefault(); history.pushState("", document.title, location.pathname + location.search); onHash(); window.scrollTo(0, 0) });
-      window.addEventListener("scroll", onScroll, { passive: true }); window.addEventListener("resize", onScroll); window.addEventListener("resize", updateTitleMarquee);
-      addEventListener("keydown", function (e) {
-        if (app.hidden || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
-        if (e.code === "Space" && !/BUTTON/.test(e.target.tagName) && e.target.getAttribute("role") !== "button") { e.preventDefault(); toggle() }
-        else if (e.key === "ArrowRight") { e.shiftKey ? next() : (S.t = Math.min((cur() || { d: 0 }).d, S.t + 10), (dhunAudio.duration ? dhunAudio.currentTime = S.t : null), tick()) }
-        else if (e.key === "ArrowLeft") { e.shiftKey ? prev() : (S.t = Math.max(0, S.t - 10), (dhunAudio.duration ? dhunAudio.currentTime = S.t : null), tick()) }
-        else if (e.key === "Escape" && playlistModal && !playlistModal.hidden) { closePlaylistModal() }
-        else if (e.key === "Escape" && !$("#np").hidden) { go(route) }
-      });
-
       /* ---------- authentication controller ---------- */
       var currentUser = null;
+      var pendingRoute = null;
       try {
         var savedUser = localStorage.getItem('dhun-user');
         if (savedUser) currentUser = JSON.parse(savedUser);
@@ -8064,14 +8285,32 @@
       var signupMsg = $("#signupMsg");
 
       function updateAuthUI() {
+        var tabbarAuthText = $("#tabbarAuthText");
         if (currentUser) {
-          var name = currentUser.name || currentUser.email.split("@")[0];
+          var name = currentUser.name || (currentUser.email ? currentUser.email.split("@")[0] : "Account");
           if (navAuthBtn) navAuthBtn.textContent = name;
           if (sideAuthText) sideAuthText.textContent = name;
+          if (tabbarAuthText) tabbarAuthText.textContent = name;
         } else {
           if (navAuthBtn) navAuthBtn.textContent = "Sign In";
           if (sideAuthText) sideAuthText.textContent = "Sign In";
+          if (tabbarAuthText) tabbarAuthText.textContent = "Profile";
         }
+      }
+
+      function redirectToMainHome() {
+        if (!currentUser) return;
+        pendingRoute = null;
+        hideAuthModal();
+        updateAuthUI();
+        if (landing) landing.hidden = true;
+        if (app) app.hidden = false;
+        appShown = true;
+        document.body.style.overflow = "hidden";
+        location.hash = "home";
+        if ($("#np")) $("#np").hidden = true;
+        render("home");
+        window.scrollTo(0, 0);
       }
 
       function showAuthModal(tab) {
@@ -8116,7 +8355,14 @@
 
       if (navAuthBtn) navAuthBtn.addEventListener("click", function() { showAuthModal(); });
       if (sideAuthBtn) sideAuthBtn.addEventListener("click", function() { showAuthModal(); });
+      var tabbarAuthBtn = $("#tabbarAuthBtn");
+      if (tabbarAuthBtn) tabbarAuthBtn.addEventListener("click", function() { showAuthModal(); });
       $("#authClose").addEventListener("click", hideAuthModal);
+      if (authModal) {
+        authModal.addEventListener("click", function(e) {
+          if (e.target === authModal) hideAuthModal();
+        });
+      }
       if (tabLogin) tabLogin.addEventListener("click", function() { switchAuthTab("login"); });
       if (tabSignup) tabSignup.addEventListener("click", function() { switchAuthTab("signup"); });
 
@@ -8251,7 +8497,7 @@
             provider: "google"
           };
           try { localStorage.setItem("dhun-user", JSON.stringify(currentUser)); } catch (e) {}
-          updateAuthUI();
+          redirectToMainHome();
         })
         .catch(function(err) {
           console.warn("Google userinfo query with token:", err);
@@ -8263,7 +8509,7 @@
             provider: "google"
           };
           try { localStorage.setItem("dhun-user", JSON.stringify(currentUser)); } catch (e) {}
-          updateAuthUI();
+          redirectToMainHome();
         });
       }
 
@@ -8282,8 +8528,7 @@
             email: email
           };
           try { localStorage.setItem("dhun-user", JSON.stringify(currentUser)); } catch (e) {}
-          updateAuthUI();
-          hideAuthModal();
+          redirectToMainHome();
         });
       }
 
@@ -8301,8 +8546,7 @@
             email: email
           };
           try { localStorage.setItem("dhun-user", JSON.stringify(currentUser)); } catch (e) {}
-          updateAuthUI();
-          hideAuthModal();
+          redirectToMainHome();
         });
       }
 
@@ -8314,8 +8558,93 @@
           try { localStorage.removeItem("dhun-user"); } catch (e) {}
           updateAuthUI();
           hideAuthModal();
+          try { dhunAudio.pause(); } catch(e) {}
+          S.play = false;
+          sync(false);
+          location.hash = "";
+          if (landing) landing.hidden = false;
+          if (app) app.hidden = true;
+          if ($("#np")) $("#np").hidden = true;
+          appShown = false;
+          document.body.style.overflow = "";
+          try { onScroll(); } catch(e) {}
+          window.scrollTo(0, 0);
         });
       }
+
+      
+
+      /* ---------- routing ---------- */
+      function go(h) { if (location.hash.slice(1) === h) { onHash(); return } location.hash = h }
+      var appShown = false;
+      function onHash() {
+        var h = location.hash.slice(1);
+        if (!currentUser && h) {
+          pendingRoute = h;
+          if (landing) landing.hidden = false;
+          if (app) app.hidden = true;
+          if ($("#np")) $("#np").hidden = true;
+          appShown = false;
+          document.body.style.overflow = "";
+          try {
+            history.replaceState("", document.title, location.pathname + location.search);
+          } catch (e) {}
+          try { onScroll(); } catch (e) {}
+          showAuthModal("login");
+          return;
+        }
+        if (h.startsWith("share=")) {
+          try {
+            var raw = decodeURIComponent(escape(atob(h.slice(6))));
+            var data = JSON.parse(raw);
+            sharedPlaylistTemp = {
+              id: "shared",
+              n: data.n || "Shared Playlist",
+              ids: data.ids || [],
+              isShared: true
+            };
+            if (!appShown) { landing.hidden = true; app.hidden = false; appShown = true; }
+            document.body.style.overflow = "hidden";
+            $("#np").hidden = true;
+            render("playlist-shared");
+            return;
+          } catch (err) {
+            console.warn("Shared playlist parse error:", err);
+          }
+        }
+        if (!h || h === "home") {
+          if (!h) { landing.hidden = false; app.hidden = true; $("#np").hidden = true; appShown = false; document.body.style.overflow = ""; onScroll(); return }
+          if (!appShown) { landing.hidden = true; app.hidden = false; appShown = true; }
+          document.body.style.overflow = "hidden";
+          $("#np").hidden = true; render("home"); return;
+        }
+        if (!appShown) { landing.hidden = true; app.hidden = false; appShown = true; }
+        document.body.style.overflow = "hidden";
+        if (h === "playing") { if (!cur()) { S.q = POP.slice(); S.i = 0; S.t = 0; S.ctx = "Popular on DHUN"; sync(true) } $("#np").hidden = false; setTimeout(updateTitleMarquee, 40); return }
+        $("#np").hidden = true; render(h);
+      }
+      window.addEventListener("hashchange", onHash);
+      $$('a[href="#home"]').forEach(function(el) {
+        el.addEventListener("click", function(e) {
+          if (!currentUser) {
+            e.preventDefault();
+            pendingRoute = "home";
+            showAuthModal("login");
+          }
+        });
+      });
+      $("#toLanding").addEventListener("click", function (e) { e.preventDefault(); history.pushState("", document.title, location.pathname + location.search); onHash(); window.scrollTo(0, 0) });
+      window.addEventListener("scroll", onScroll, { passive: true }); window.addEventListener("resize", onScroll); window.addEventListener("resize", updateTitleMarquee);
+      addEventListener("keydown", function (e) {
+        if (app.hidden || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+        if (e.code === "Space" && !/BUTTON/.test(e.target.tagName) && e.target.getAttribute("role") !== "button") { e.preventDefault(); toggle() }
+        else if (e.key === "ArrowRight") { e.shiftKey ? next() : (S.t = Math.min((cur() || { d: 0 }).d, S.t + 10), (dhunAudio.duration ? dhunAudio.currentTime = S.t : null), tick()) }
+        else if (e.key === "ArrowLeft") { e.shiftKey ? prev() : (S.t = Math.max(0, S.t - 10), (dhunAudio.duration ? dhunAudio.currentTime = S.t : null), tick()) }
+        else if (e.key === "Escape" && playlistModal && !playlistModal.hidden) { closePlaylistModal() }
+        else if (e.key === "Escape" && !$("#np").hidden) { go(route) }
+      });
+
+      
 
       updateAuthUI();
 
