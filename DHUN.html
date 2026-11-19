@@ -921,6 +921,26 @@
       color: var(--ink)
     }
 
+    .side .pl.on {
+      color: var(--ink);
+      font-weight: 600;
+      background: color-mix(in srgb, var(--ink) 8%, transparent)
+    }
+
+    .side .liked-pl-btn {
+      color: var(--ink)
+    }
+
+    .side .liked-pl-btn:hover {
+      background: color-mix(in srgb, var(--accent) 15%, transparent) !important;
+      color: var(--accent)
+    }
+
+    .side .liked-pl-btn.on {
+      background: color-mix(in srgb, var(--accent) 22%, transparent) !important;
+      color: var(--accent)
+    }
+
     .side .grow {
       flex: 1
     }
@@ -2528,32 +2548,7 @@
 
       <!-- Profile Panel -->
 
-      <!-- Google OAuth Config Panel -->
-      <div id="panelGoogleConfig" class="modal-panel">
-        <h2 class="big" style="font-size:26px;margin-bottom:6px">Connect Google Auth</h2>
-        <p class="note" style="font-size:13px;margin:0 0 16px;color:var(--ink-2)">
-          To open Google's sign-in screen, enter your <b>Google Client ID</b> (or Supabase Project URL).
-        </p>
-        <div class="auth-field">
-          <label class="mono">Google Client ID or Supabase URL</label>
-          <input type="text" id="googleClientIdInput" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
-        </div>
-        <p style="font-size:12px;color:var(--ink-2);margin-bottom:14px;line-height:1.4">
-          In Google Cloud Console, ensure <b>Authorized JavaScript origins</b> includes <code
-            style="color:var(--accent)">http://localhost:3000</code>.
-        </p>
-        <div id="googleConfigMsg" class="auth-msg" hidden></div>
-        <button type="button" class="btn accent" id="btnSaveGoogleConfig"
-          style="width:100%;justify-content:center;border-radius:12px;margin-top:10px">
-          Launch Google Sign-In
-        </button>
-        <button type="button" class="btn line" id="btnCancelGoogleConfig"
-          style="width:100%;justify-content:center;border-radius:12px;margin-top:8px">
-          Back
-        </button>
-      </div>
-
-      <div id="panelProfile" class="modal-panel">
+<div id="panelProfile" class="modal-panel">
         <h2 class="big" style="font-size:28px;margin-bottom:6px">Your Account</h2>
         <div style="margin:20px 0;padding:16px;background:var(--paper-2);border-radius:12px">
           <b id="profileName" style="display:block;font-size:18px"></b>
@@ -7319,6 +7314,8 @@
             else S.liked[id] = 1;
             try { localStorage.setItem("dhun-likes", JSON.stringify(S.liked)) } catch (err) { }
             sync(false);
+            updateSidebarPlaylists();
+            if (route === "playlist-liked" || route === "library") render(route);
           });
         });
         $$("[data-add-pl]", root).forEach(function (b) {
@@ -7547,14 +7544,24 @@
       function updateSidebarPlaylists() {
         var sideEl = $("#sidePl");
         if (!sideEl) return;
+        var likedCount = Object.keys(S.liked).filter(function (id) { return !!T[id] }).length;
+        var isLikedActive = (route === "playlist-liked");
         var html = '<button class="pl new-pl-btn" data-create-pl style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--accent);margin-bottom:8px">' +
           '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Create Playlist</button>';
+
+        // Default "Liked Songs" playlist item
+        html += '<button class="pl liked-pl-btn' + (isLikedActive ? ' on' : '') + '" data-playlist="liked" style="display:flex;align-items:center;gap:9px;font-weight:600;margin-bottom:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb, var(--accent) 9%, transparent);transition:all .15s ease">' +
+          '<span style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#E05A47,#FF758C);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 3px 8px -2px rgba(224,90,71,0.5)">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+          '</span>' +
+          '<span style="flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Liked Songs</span>' +
+          '<span class="mono" style="font-size:11px;color:var(--ink-2);opacity:0.8">' + likedCount + '</span>' +
+          '</button>';
+
         if (PLAYLISTS.length) {
           html += PLAYLISTS.map(function (p) {
-            return '<button class="pl" data-playlist="' + p.id + '">' + p.n.replace(/</g, "&lt;") + '</button>';
+            return '<button class="pl' + (route === "playlist-" + p.id ? ' on' : '') + '" data-playlist="' + p.id + '">' + p.n.replace(/</g, "&lt;") + '</button>';
           }).join("");
-        } else {
-          html += '<span style="font-size:12px;color:var(--ink-2);padding:6px 12px;display:block">No playlists created</span>';
         }
         sideEl.innerHTML = html;
         bindView(sideEl);
@@ -8037,24 +8044,26 @@
         var body = "";
 
         if (libTab === "playlists") {
+          var likedCard = '<div style="position:relative"><button class="card" data-playlist="liked" style="width:100%">' +
+            '<div class="mosaic art" style="aspect-ratio:1;border-radius:12px;background:linear-gradient(135deg, #450af5 0%, #c43a50 50%, #e05a47 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px -8px rgba(224,90,71,0.5)">' +
+            '<svg width="48" height="48" viewBox="0 0 24 24" fill="#ffffff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+            '</div>' +
+            '<b>Liked Songs</b><span>' + liked.length + ' songs · Default</span></button></div>';
+
           body = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">' +
-            '<span class="mono" style="color:var(--ink-2)">' + PLAYLISTS.length + ' Playlists</span>' +
+            '<span class="mono" style="color:var(--ink-2)">' + (PLAYLISTS.length + 1) + ' Playlists</span>' +
             '<button class="btn accent" data-create-pl style="display:inline-flex;align-items:center;gap:6px">' +
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Create Playlist</button></div>';
 
-          if (PLAYLISTS.length) {
-            body += '<div class="cards">' + PLAYLISTS.map(function (p) {
-              return '<div style="position:relative"><button class="card" data-playlist="' + p.id + '" style="width:100%">' +
-                mosaic(p).replace('class="mosaic"', 'class="mosaic art"') +
-                '<b>' + p.n.replace(/</g, "&lt;") + '</b><span>' + p.ids.length + ' songs</span></button>' +
-                '<button data-share-pl="' + p.id + '" title="Share playlist" style="position:absolute;top:8px;right:42px;background:rgba(0,0,0,0.6);border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;opacity:0.8;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">' +
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>' +
-                '<button data-del-pl="' + p.id + '" title="Delete playlist" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;opacity:0.8;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">' +
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF5A7A" stroke-width="2.2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>';
-            }).join("") + '</div>';
-          } else {
-            body += '<div class="empty"><b>No playlists created yet</b>Create your first custom playlist to save your favorite songs.<br><br><button class="btn accent" data-create-pl>+ Create First Playlist</button></div>';
-          }
+          body += '<div class="cards">' + likedCard + (PLAYLISTS.length ? PLAYLISTS.map(function (p) {
+            return '<div style="position:relative"><button class="card" data-playlist="' + p.id + '" style="width:100%">' +
+              mosaic(p).replace('class="mosaic"', 'class="mosaic art"') +
+              '<b>' + p.n.replace(/</g, "&lt;") + '</b><span>' + p.ids.length + ' songs</span></button>' +
+              '<button data-share-pl="' + p.id + '" title="Share playlist" style="position:absolute;top:8px;right:42px;background:rgba(0,0,0,0.6);border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;opacity:0.8;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>' +
+              '<button data-del-pl="' + p.id + '" title="Delete playlist" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;opacity:0.8;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF5A7A" stroke-width="2.2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>';
+          }).join("") : '') + '</div>';
         } else if (libTab === "liked") {
           body = liked.length ? '<div class="list" id="lkList">' + liked.map(function (i, n) { return rowHTML(T[i], n) }).join("") + '</div>' : '<div class="empty"><b>No liked songs yet</b>Tap the heart next to any song and it will show up here.</div>';
         } else {
@@ -8066,6 +8075,32 @@
 
       /* ---------- custom user playlist view with delete option ---------- */
       function vPlaylist(id) {
+        if (id === "liked") {
+          var likedIds = Object.keys(S.liked).filter(function (tid) { return !!T[tid] });
+          var totalDur = Math.round(likedIds.reduce(function (s, tid) { return s + (T[tid] ? T[tid].d : 0) }, 0) / 60);
+
+          var coverArt = '<div style="width:min(300px,72vw);aspect-ratio:1;border-radius:14px;background:linear-gradient(135deg, #450af5 0%, #c43a50 50%, #e05a47 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 30px 60px -20px rgba(224,90,71,0.45);flex-shrink:0">' +
+            '<svg width="84" height="84" viewBox="0 0 24 24" fill="#ffffff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+            '</div>';
+
+          var acts = '<button class="btn accent" data-playlist-play="liked"' + (likedIds.length ? '' : ' disabled style="opacity:0.5;cursor:not-allowed"') + '>' +
+            I.play.replace('<svg', '<svg width="16" height="16"') + 'Play Liked Songs</button>';
+
+          return '<section class="hero" style="min-height:0;margin-bottom:34px;gap:34px;align-items:flex-end;flex-wrap:wrap">' +
+            coverArt +
+            '<div style="min-width:0;flex:1">' +
+            '<div class="mono" style="color:var(--accent);text-transform:uppercase;letter-spacing:.06em;font-size:12px;margin-bottom:8px">Default Playlist</div>' +
+            '<h1 style="font-weight:800;font-stretch:75%;text-transform:uppercase;letter-spacing:-.045em;line-height:.84;font-size:clamp(46px,8vw,120px);margin:8px 0 16px;overflow-wrap:anywhere">Liked Songs</h1>' +
+            '<div class="acts" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
+            acts +
+            '<span class="mono" style="color:var(--ink-2)">' + likedIds.length + ' songs' + (totalDur > 0 ? ' · ' + totalDur + ' min' : '') + '</span>' +
+            '</div></div></section>' +
+            '<section class="sec">' +
+            (likedIds.length ? '<div class="list" id="aList">' + likedIds.map(function (tid, n) { return rowHTML(T[tid], n) }).join("") + '</div>' :
+              '<div class="empty"><b>No liked songs yet</b>Tap the heart icon next to any song in Search, Home, or Albums to add it to your Liked Songs!</div>') +
+            '</section>';
+        }
+
         var p = (id === "shared" && sharedPlaylistTemp) ? sharedPlaylistTemp : PLAYLISTS.find(function (x) { return x.id === id });
         if (!p) return vLibrary();
         var validIds = p.ids.filter(function (tid) { return !!T[tid] });
@@ -8105,7 +8140,7 @@
         $$("[data-playalbum]", root).forEach(function (b) { b.addEventListener("click", function () { var al = AL[b.getAttribute("data-playalbum")]; if (al) setQueue(al.ids, 0, al.t) }) });
         $$("[data-mood]", root).forEach(function (b) { b.addEventListener("click", function () { searchQ = b.getAttribute("data-mood"); searchChip = ""; go("search") }) });
         $$("[data-playlist]", root).forEach(function (b) { b.addEventListener("click", function () { go("playlist-" + b.getAttribute("data-playlist")) }) });
-        $$("[data-playlist-play]", root).forEach(function (b) { b.addEventListener("click", function () { var p = PLAYLISTS.find(function (x) { return x.id === b.getAttribute("data-playlist-play") }); if (p && p.ids.length) setQueue(p.ids, 0, p.n) }) });
+        $("[data-playlist-play]", root).forEach(function (b) { b.addEventListener("click", function () { var pid = b.getAttribute("data-playlist-play"); if (pid === "liked") { var likedIds = Object.keys(S.liked).filter(function (tid) { return !!T[tid] }); if (likedIds.length) setQueue(likedIds, 0, "Liked Songs"); return; } var p = PLAYLISTS.find(function (x) { return x.id === pid }); if (p && p.ids.length) setQueue(p.ids, 0, p.n); }); });
         $$("[data-create-pl]", root).forEach(function (b) { b.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); openCreatePlaylistModal(); }) });
         $$("[data-del-pl]", root).forEach(function (b) { b.addEventListener("click", function (e) { e.stopPropagation(); deletePlaylistFlow(b.getAttribute("data-del-pl")) }) });
         $$("[data-add-pl]", root).forEach(function (b) { b.addEventListener("click", function (e) { e.stopPropagation(); addSongToPlaylistFlow(b.getAttribute("data-add-pl")) }) });
@@ -8120,7 +8155,7 @@
         route = name || "home"; var k = (name || "home").split("-")[0], rest = (name || "home").slice(k.length + 1);
         var html = k === "artist" ? vArtist(rest) : k === "album" ? vAlbum(rest) : k === "playlist" ? vPlaylist(rest) : k === "search" ? vSearch() : k === "library" ? vLibrary() : vHome();
         view.innerHTML = html; bindView(view);
-        $$("#hPop,#aList,#lkList").forEach(function (l) { var ids = $$(".trow", l).map(function (r) { return r.getAttribute("data-tid") }); var ctx = k === "album" && AL[rest] ? AL[rest].t : k === "playlist" ? "Playlist" : k === "artist" && AR[rest] ? AR[rest].name : "DHUN"; bindRows(l, ids, ctx) });
+        $$("#hPop,#aList,#lkList").forEach(function (l) { var ids = $$(".trow", l).map(function (r) { return r.getAttribute("data-tid") }); var ctx = k === "album" && AL[rest] ? AL[rest].t : (k === "playlist" && rest === "liked") ? "Liked Songs" : k === "playlist" ? "Playlist" : k === "artist" && AR[rest] ? AR[rest].name : "DHUN"; bindRows(l, ids, ctx) });
         if (k === "search") { var q = $("#sq"); q.addEventListener("input", function () { searchQ = q.value; runSearch() }); runSearch() }
         var tab = k === "search" ? "search" : k === "library" || k === "playlist" ? "library" : (k === "home" || k === "" || k === "artist" || k === "album") ? "home" : "";
         $$("[data-nav]", app).forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-nav") === tab) });
@@ -8283,6 +8318,8 @@
             else S.liked[c.id] = 1;
             try { localStorage.setItem("dhun-likes", JSON.stringify(S.liked)) } catch (err) { }
             sync(false);
+            updateSidebarPlaylists();
+            if (route === "playlist-liked" || route === "library") render(route);
           }
         }
       });
@@ -8298,6 +8335,8 @@
         else S.liked[c.id] = 1;
         try { localStorage.setItem("dhun-likes", JSON.stringify(S.liked)) } catch (err) { }
         sync(false);
+        updateSidebarPlaylists();
+        if (route === "playlist-liked" || route === "library") render(route);
       };
       $("#bMute").onclick = function () {
         S.muted = !S.muted;
@@ -8456,111 +8495,18 @@
       if (tabLogin) tabLogin.addEventListener("click", function () { switchAuthTab("login"); });
       if (tabSignup) tabSignup.addEventListener("click", function () { switchAuthTab("signup"); });
 
-      // Google Login / Signup (Real Google OAuth screen)
-      var panelGoogleConfig = $("#panelGoogleConfig");
-      var googleClientIdInput = $("#googleClientIdInput");
-      var btnSaveGoogleConfig = $("#btnSaveGoogleConfig");
-      var btnCancelGoogleConfig = $("#btnCancelGoogleConfig");
-      var googleConfigMsg = $("#googleConfigMsg");
-
-      // =========================================================================
-      // PASTE YOUR GOOGLE CLIENT ID HERE:
-      // Put your Client ID between the quotes below so clicking "Continue with Google"
-      // will DIRECTLY open Google's sign-in screen without asking anyone!
-      // =========================================================================
-      var HARDCODED_GOOGLE_CLIENT_ID = "152282070058-f07de7p1cce3vs4nrpcb93hi51rb5uka.apps.googleusercontent.com"; // <-- PASTE HERE (e.g. "123456789-abcdef.apps.googleusercontent.com")
-
-      function getGoogleClientId() {
-        if (HARDCODED_GOOGLE_CLIENT_ID && HARDCODED_GOOGLE_CLIENT_ID.trim()) {
-          return HARDCODED_GOOGLE_CLIENT_ID.trim();
-        }
-        var id = "";
-        try { id = localStorage.getItem("dhun-google-client-id") || ""; } catch (e) { }
-        return id.trim();
-      }
-
-      function getSupabaseUrl() {
-        var url = "";
-        try { url = localStorage.getItem("dhun-supabase-url") || ""; } catch (e) { }
-        return url.trim();
-      }
-
-      function launchGoogleAuth(clientId, supabaseUrl) {
-        var redirectUri = window.location.origin + window.location.pathname;
-
-        // If Supabase URL is provided, redirect to Supabase Google Auth
-        if (supabaseUrl && supabaseUrl.indexOf("supabase.co") > -1) {
-          var cleanUrl = supabaseUrl.replace(/\/$/, "");
-          window.location.href = cleanUrl + "/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(redirectUri);
-          return;
-        }
-
-        // Standard Google OAuth 2.0 Authorization Endpoint (Accounts.google.com)
-        if (clientId) {
-          var authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
-            "client_id=" + encodeURIComponent(clientId) +
-            "&redirect_uri=" + encodeURIComponent(redirectUri) +
-            "&response_type=token" +
-            "&scope=" + encodeURIComponent("email profile openid") +
-            "&prompt=select_account";
-          window.location.href = authUrl;
-          return;
-        }
-
-        // Show config screen if neither is available
-        showGoogleConfig();
-      }
-
-      function showGoogleConfig() {
-        if (!panelGoogleConfig) return;
-        tabLogin.hidden = true;
-        tabSignup.hidden = true;
-        formLogin.classList.remove("active");
-        formSignup.classList.remove("active");
-        panelProfile.classList.remove("active");
-        panelGoogleConfig.classList.add("active");
-        if (googleClientIdInput) {
-          googleClientIdInput.value = getGoogleClientId() || getSupabaseUrl();
-          setTimeout(function () { googleClientIdInput.focus(); }, 100);
-        }
-      }
-
-      function hideGoogleConfig() {
-        if (!panelGoogleConfig) return;
-        panelGoogleConfig.classList.remove("active");
-        tabLogin.hidden = false;
-        tabSignup.hidden = false;
-        formLogin.classList.add("active");
-      }
-
-      if (btnCancelGoogleConfig) {
-        btnCancelGoogleConfig.addEventListener("click", hideGoogleConfig);
-      }
-
-      if (btnSaveGoogleConfig) {
-        btnSaveGoogleConfig.addEventListener("click", function () {
-          var val = (googleClientIdInput ? googleClientIdInput.value : "").trim();
-          if (!val) {
-            if (googleConfigMsg) {
-              googleConfigMsg.textContent = "Please enter a valid Google Client ID or Supabase URL";
-              googleConfigMsg.hidden = false;
-            }
-            return;
-          }
-          if (val.indexOf("supabase.co") > -1) {
-            try { localStorage.setItem("dhun-supabase-url", val); } catch (e) { }
-            launchGoogleAuth("", val);
-          } else {
-            try { localStorage.setItem("dhun-google-client-id", val); } catch (e) { }
-            launchGoogleAuth(val, "");
-          }
-        });
-      }
+      // Google Login / Signup (Direct Official Google OAuth Screen)
+      var GOOGLE_CLIENT_ID = "152282070058-f07de7p1cce3vs4nrpcb93hi51rb5uka.apps.googleusercontent.com";
 
       function doGoogleAuth() {
-        var clientId = getGoogleClientId();
-        var supabaseUrl = getSupabaseUrl();
-        launchGoogleAuth(clientId, supabaseUrl);
+        var redirectUri = window.location.origin + window.location.pathname;
+        var authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
+          "client_id=" + encodeURIComponent(GOOGLE_CLIENT_ID) +
+          "&redirect_uri=" + encodeURIComponent(redirectUri) +
+          "&response_type=token" +
+          "&scope=" + encodeURIComponent("email profile openid") +
+          "&prompt=select_account";
+        window.location.href = authUrl;
       }
 
       var bgl = $("#btnGoogleLogin"); if (bgl) bgl.addEventListener("click", doGoogleAuth);
@@ -8679,6 +8625,10 @@
       var appShown = false;
       function onHash() {
         var h = location.hash.slice(1);
+        if (h && h.indexOf("access_token=") > -1) {
+          handleOAuthCallback();
+          return;
+        }
         if (!currentUser && h) {
           pendingRoute = h;
           if (landing) landing.hidden = false;
