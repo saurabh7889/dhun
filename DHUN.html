@@ -7315,7 +7315,7 @@
             try { localStorage.setItem("dhun-likes", JSON.stringify(S.liked)) } catch (err) { }
             sync(false);
             updateSidebarPlaylists();
-            if (route === "playlist-liked" || route === "library") render(route);
+            if (route === "playlist-liked" || route === "library") setTimeout(function(){ render(route); }, 0);
           });
         });
         $$("[data-add-pl]", root).forEach(function (b) {
@@ -8140,7 +8140,7 @@
         $$("[data-playalbum]", root).forEach(function (b) { b.addEventListener("click", function () { var al = AL[b.getAttribute("data-playalbum")]; if (al) setQueue(al.ids, 0, al.t) }) });
         $$("[data-mood]", root).forEach(function (b) { b.addEventListener("click", function () { searchQ = b.getAttribute("data-mood"); searchChip = ""; go("search") }) });
         $$("[data-playlist]", root).forEach(function (b) { b.addEventListener("click", function () { go("playlist-" + b.getAttribute("data-playlist")) }) });
-        $("[data-playlist-play]", root).forEach(function (b) { b.addEventListener("click", function () { var pid = b.getAttribute("data-playlist-play"); if (pid === "liked") { var likedIds = Object.keys(S.liked).filter(function (tid) { return !!T[tid] }); if (likedIds.length) setQueue(likedIds, 0, "Liked Songs"); return; } var p = PLAYLISTS.find(function (x) { return x.id === pid }); if (p && p.ids.length) setQueue(p.ids, 0, p.n); }); });
+        $$("[data-playlist-play]", root).forEach(function (b) { b.addEventListener("click", function () { var pid = b.getAttribute("data-playlist-play"); if (pid === "liked") { var likedIds = Object.keys(S.liked).filter(function (tid) { return !!T[tid] }); if (likedIds.length) setQueue(likedIds, 0, "Liked Songs"); return; } var p = PLAYLISTS.find(function (x) { return x.id === pid }); if (p && p.ids.length) setQueue(p.ids, 0, p.n); }); });
         $$("[data-create-pl]", root).forEach(function (b) { b.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); openCreatePlaylistModal(); }) });
         $$("[data-del-pl]", root).forEach(function (b) { b.addEventListener("click", function (e) { e.stopPropagation(); deletePlaylistFlow(b.getAttribute("data-del-pl")) }) });
         $$("[data-add-pl]", root).forEach(function (b) { b.addEventListener("click", function (e) { e.stopPropagation(); addSongToPlaylistFlow(b.getAttribute("data-add-pl")) }) });
@@ -8319,7 +8319,7 @@
             try { localStorage.setItem("dhun-likes", JSON.stringify(S.liked)) } catch (err) { }
             sync(false);
             updateSidebarPlaylists();
-            if (route === "playlist-liked" || route === "library") render(route);
+            if (route === "playlist-liked" || route === "library") setTimeout(function(){ render(route); }, 0);
           }
         }
       });
